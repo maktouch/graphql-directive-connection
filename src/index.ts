@@ -1,31 +1,18 @@
+import { mergeSchemas } from '@graphql-tools/schema'
+import { getDirectives, MapperKind, mapSchema } from '@graphql-tools/utils'
 import {
-  mapSchema,
-  getDirectives,
-  MapperKind,
-  mergeSchemas,
-  getFieldsWithDirectives,
-  getDocumentNodeFromSchema,
-  extractType,
-  cloneType,
-  renameType,
-  getUserTypesFromSchema,
-  wrapSchema,
-  RenameObjectFields,
-  TransformObjectFields,
   TransformInterfaceFields,
-} from 'graphql-tools'
+  TransformObjectFields,
+  wrapSchema,
+} from '@graphql-tools/wrap'
 import {
-  GraphQLSchema,
-  GraphQLNamedType,
-  GraphQLField,
-  GraphQLOutputType,
-  GraphQLObjectType,
-  TypeNode,
-  print,
   GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
+  GraphQLNamedType,
+  GraphQLObjectType,
+  GraphQLOutputType,
   GraphQLScalarType,
-  FieldDefinitionNode,
+  GraphQLSchema,
 } from 'graphql'
 
 export type ConnectionDirectiveOptions = {
@@ -57,23 +44,26 @@ export default function connectionDirective(
       ) => {
         const directives = getDirectives(schema, fieldConfig)
 
-        if (directives[directiveName]) {
-          const baseName = getBaseType(fieldConfig.type.toString())
-          connectionTypes[baseName] = true
-          markedLocations[`${typeName}.${fieldName}`] = baseName + 'Connection'
-          // fieldConfig.type = makeConnectionType(fieldConfig.type) // does not work
-          // return fieldConfig
-        }
-
-        if (directives['cacheControl']) {
-          const maxAge = directives['cacheControl'].maxAge
-          if (typeof maxAge === 'number') {
+        for (const directive of directives) {
+          if (directive.name === directiveName) {
             const baseName = getBaseType(fieldConfig.type.toString())
-            if (
-              !connectionTypeGreatestMaxAge.hasOwnProperty(baseName) ||
-              maxAge > connectionTypeGreatestMaxAge[baseName]
-            ) {
-              connectionTypeGreatestMaxAge[baseName] = maxAge
+            connectionTypes[baseName] = true
+            markedLocations[`${typeName}.${fieldName}`] =
+              baseName + 'Connection'
+            // fieldConfig.type = makeConnectionType(fieldConfig.type) // does not work
+            // return fieldConfig
+          }
+
+          if (directive.name === 'cacheControl') {
+            const maxAge = directive.args?.maxAge
+            if (typeof maxAge === 'number') {
+              const baseName = getBaseType(fieldConfig.type.toString())
+              if (
+                !connectionTypeGreatestMaxAge.hasOwnProperty(baseName) ||
+                maxAge > connectionTypeGreatestMaxAge[baseName]
+              ) {
+                connectionTypeGreatestMaxAge[baseName] = maxAge
+              }
             }
           }
         }

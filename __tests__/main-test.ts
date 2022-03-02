@@ -1,11 +1,4 @@
-import { validateSchema } from 'graphql'
-import { makeExecutableSchema, printSchemaWithDirectives } from 'graphql-tools'
-import connectionDirective from '../src'
-
-const {
-  connectionDirectiveTypeDefs,
-  connectionDirectiveTransform,
-} = connectionDirective('connection')
+import { getConnectionSchema } from './utils'
 
 test('main test', () => {
   const typeDefs = `
@@ -40,69 +33,55 @@ test('main test', () => {
       user: User
     }
   `
-  const expected = `schema {
-  query: Query
-}
+  expect(getConnectionSchema(typeDefs)).toMatchInlineSnapshot(`
+    "schema {
+      query: Query
+    }
 
-directive @connection on FIELD_DEFINITION
+    directive @connection on FIELD_DEFINITION
 
-directive @sql on FIELD_DEFINITION
+    directive @sql on FIELD_DEFINITION
 
-interface Account {
-  interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
-}
+    type PageInfo {
+      hasNextPage: Boolean!
+      hasPreviousPage: Boolean!
+      startCursor: String
+      endCursor: String
+    }
 
-type User implements Account {
-  userId: Int
-  smallPosts(after: String, first: Int, before: String, last: Int): PostConnection
-  posts(after: String, first: Int, before: String, last: Int): PostConnection @sql
-  bigPosts(after: String, first: Int, before: String, last: Int): PostConnection @sql
-  multilinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
-  inlinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
-  """ignoredPost: Post @connection"""
-  interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
-  extendedField(after: String, first: Int, before: String, last: Int): PostConnection
-}
+    type PostEdge {
+      cursor: String!
+      node: Post
+    }
 
-type Post {
-  postId: Int
-}
+    type PostConnection {
+      totalCount: Int!
+      edges: [PostEdge]
+      pageInfo: PageInfo!
+    }
 
-type Query {
-  user: User
-}
+    interface Account {
+      interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
+    }
 
-type PageInfo {
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
-  endCursor: String
-}
+    type User implements Account {
+      userId: Int
+      smallPosts(after: String, first: Int, before: String, last: Int): PostConnection
+      posts(after: String, first: Int, before: String, last: Int): PostConnection @sql
+      bigPosts(after: String, first: Int, before: String, last: Int): PostConnection @sql
+      multilinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
+      inlinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
+      interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
+      extendedField(after: String, first: Int, before: String, last: Int): PostConnection
+    }
 
-type PostEdge {
-  cursor: String!
-  node: Post
-}
+    type Post {
+      postId: Int
+    }
 
-type PostConnection {
-  totalCount: Int!
-  edges: [PostEdge]
-  pageInfo: PageInfo!
-}
-`
-  runTest(typeDefs, expected)
+    type Query {
+      user: User
+    }
+    "
+  `)
 })
-
-function runTest(typeDefs: string, expected: string) {
-  let schema = makeExecutableSchema({
-    typeDefs: [connectionDirectiveTypeDefs, typeDefs],
-  })
-  schema = connectionDirectiveTransform(schema)
-  const answer = printSchemaWithDirectives(schema)
-
-  if (answer !== expected) {
-    console.log(answer)
-  }
-
-  expect(answer).toEqual(expected)
-}

@@ -1,10 +1,4 @@
-import { makeExecutableSchema, printSchemaWithDirectives } from 'graphql-tools'
-import connectionDirective from '../src'
-
-const {
-  connectionDirectiveTypeDefs,
-  connectionDirectiveTransform,
-} = connectionDirective('connection', { useCacheControl: true })
+import { getConnectionSchema } from './utils'
 
 test('cacheControl test', () => {
   const typeDefs = `
@@ -32,66 +26,54 @@ test('cacheControl test', () => {
       user: User
     }
   `
-  const expected = `schema {
-  query: Query
-}
 
-directive @connection on FIELD_DEFINITION
+  expect(getConnectionSchema(typeDefs)).toMatchInlineSnapshot(`
+    "schema {
+      query: Query
+    }
 
-directive @sql on FIELD_DEFINITION
+    directive @connection on FIELD_DEFINITION
 
-directive @cacheControl(maxAge: Int, scope: CacheControlScope) on FIELD_DEFINITION | OBJECT | INTERFACE
+    directive @sql on FIELD_DEFINITION
 
-enum CacheControlScope {
-  PUBLIC
-  PRIVATE
-}
+    directive @cacheControl(maxAge: Int, scope: CacheControlScope) on FIELD_DEFINITION | OBJECT | INTERFACE
 
-type User {
-  userId: Int
-  shortPosts(after: String, first: Int, before: String, last: Int): PostConnection @cacheControl(maxAge: 10)
-  longPosts(after: String, first: Int, before: String, last: Int): PostConnection @cacheControl(maxAge: 0)
-}
+    type PageInfo {
+      hasNextPage: Boolean!
+      hasPreviousPage: Boolean!
+      startCursor: String
+      endCursor: String
+    }
 
-type Post @cacheControl(maxAge: 20) {
-  postId: Int
-}
+    type PostEdge @cacheControl(maxAge: 10) {
+      cursor: String!
+      node: Post
+    }
 
-type Query {
-  user: User
-}
+    type PostConnection {
+      totalCount: Int!
+      edges: [PostEdge] @cacheControl(maxAge: 10)
+      pageInfo: PageInfo! @cacheControl(maxAge: 10)
+    }
 
-type PageInfo {
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
-  endCursor: String
-}
+    enum CacheControlScope {
+      PUBLIC
+      PRIVATE
+    }
 
-type PostEdge @cacheControl(maxAge: 10) {
-  cursor: String!
-  node: Post
-}
+    type User {
+      userId: Int
+      shortPosts(after: String, first: Int, before: String, last: Int): PostConnection @cacheControl(maxAge: 10)
+      longPosts(after: String, first: Int, before: String, last: Int): PostConnection @cacheControl(maxAge: 0)
+    }
 
-type PostConnection {
-  totalCount: Int!
-  edges: [PostEdge] @cacheControl(maxAge: 10)
-  pageInfo: PageInfo! @cacheControl(maxAge: 10)
-}
-`
-  runTest(typeDefs, expected)
+    type Post @cacheControl(maxAge: 20) {
+      postId: Int
+    }
+
+    type Query {
+      user: User
+    }
+    "
+  `)
 })
-
-function runTest(typeDefs: string, expected: string) {
-  let schema = makeExecutableSchema({
-    typeDefs: [connectionDirectiveTypeDefs, typeDefs],
-  })
-  schema = connectionDirectiveTransform(schema)
-  const answer = printSchemaWithDirectives(schema)
-
-  if (answer !== expected) {
-    console.log(answer)
-  }
-
-  expect(answer).toEqual(expected)
-}
